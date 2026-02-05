@@ -307,7 +307,7 @@ userSchema.index({ googleId: 1 }, { sparse: true, unique: true });
 module.exports = mongoose.model('User', userSchema);
 ```
 
-### Main Server (`server.js`)
+### Main Server (`index.js`)
 
 ```javascript
 const express = require('express');
