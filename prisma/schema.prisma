@@ -1,0 +1,107 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String           @id @default(uuid())
+  name               String?
+  email              String?          @unique
+  mobile             String?          @unique
+  is_mobile_verified Boolean          @default(false)
+  otp_hash           String?
+  otp_expires_at     DateTime?
+  googleId           String?          @unique
+  photoUrl           String?
+  fcmToken           String?
+  authProvider       String           @default("email") // email, google, mobile
+  lastLogin          DateTime         @default(now())
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  contacts           TrustedContact[]
+  checkIns           CheckIn[]
+  safeTimers         SafeTimer[]
+  sosEvents          SOS[]
+  achievements       Achievement[]
+  settings           UserSettings?
+}
+
+model TrustedContact {
+  id                 String   @id @default(uuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id])
+  name               String
+  phone              String
+  relation           String?
+  isEmergencyContact Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model CheckIn {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  lat       Float
+  lng       Float
+  status    String   @default("safe") // safe, unsafe
+  mood      String?
+  createdAt DateTime @default(now())
+}
+
+model SafeTimer {
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id])
+  durationMinutes  Int
+  destinationLat   Float?
+  destinationLng   Float?
+  message          String?
+  startTime        DateTime  @default(now())
+  endTime          DateTime
+  status           String    @default("active") // active, stopped, expired, sos_triggered
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model SOS {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  lat       Float
+  lng       Float
+  type      String    @default("active") // silent, active
+  status    String    @default("active") // active, cancelled
+  reason    String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Achievement {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  badgeName  String
+  achievedAt DateTime @default(now())
+
+  @@unique([userId, badgeName])
+}
+
+model UserSettings {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id])
+  reminderTime         String   @default("19:00")
+  alertDelayMinutes    Int      @default(120)
+  notificationsEnabled Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
