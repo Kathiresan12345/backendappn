@@ -5,9 +5,49 @@ const prisma = require('../lib/prisma');
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+exports.register = async (req, res) => {
+    try {
+        const { email, password, name, mobile, gender } = req.body;
+
+        // Check if user already exists
+        const existingUser = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { email: email },
+                    { mobile: mobile }
+                ]
+            }
+        });
+
+        if (existingUser) {
+            return res.status(400).json({ error: 'User with this email or mobile already exists' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const user = await prisma.user.create({
+            data: {
+                email,
+                password: hashedPassword,
+                name,
+                mobile,
+                gender,
+                authProvider: 'email'
+            }
+        });
+
+        const jwtToken = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '30d' });
+
+        res.json({ success: true, token: jwtToken, user });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Registration failed' });
+    }
+};
+
 exports.login = async (req, res) => {
     try {
-        const { provider, token, userData } = req.body;
+        const { provider, email, password, token, userData } = req.body;
 
         if (provider === 'google') {
             const ticket = await client.verifyIdToken({
@@ -17,92 +57,79 @@ exports.login = async (req, res) => {
             const payload = ticket.getPayload();
             const googleId = payload['sub'];
 
-            let user = await prisma.user.upsert({
-                where: { googleId: googleId },
-                update: {
-                    lastLogin: new Date(),
-                    photoUrl: userData.photoUrl || payload['picture']
-                },
-                create: {
-                    googleId: googleId,
-                    email: payload['email'],
-                    name: userData.name || payload['name'],
-                    photoUrl: userData.photoUrl || payload['picture'],
-                    authProvider: 'google',
-                    is_mobile_verified: false,
-                }
+            let user = await prisma.user.findUnique({
+                where: { googleId: googleId }
             });
+
+            if (!user) {
+                // If user doesn't exist, create with basic info from Google
+                // They might need to "complete profile" later (mobile, gender)
+                user = await prisma.user.create({
+                    data: {
+                        googleId: googleId,
+                        email: payload['email'],
+                        name: userData?.name || payload['name'],
+                        photoUrl: userData?.photoUrl || payload['picture'],
+                        authProvider: 'google',
+                    }
+                });
+            } else {
+                // Update existing user
+                user = await prisma.user.update({
+                    where: { googleId: googleId },
+                    data: {
+                        lastLogin: new Date(),
+                        photoUrl: userData?.photoUrl || payload['picture'] || user.photoUrl
+                    }
+                });
+            }
 
             const jwtToken = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '30d' });
 
-            return res.json({ success: true, token: jwtToken, user });
+            // Check if profile is complete (has mobile and gender)
+            const isProfileComplete = !!(user.mobile && user.gender);
+
+            return res.json({
+                success: true,
+                token: jwtToken,
+                user,
+                isProfileComplete
+            });
         }
 
-        res.status(400).json({ error: 'Unsupported provider' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Authentication failed' });
-    }
-};
-
-exports.sendOtp = async (req, res) => {
-    try {
-        const { mobile } = req.body;
-        const otp = Math.floor(1000 + Math.random() * 9000).toString();
-        const otpHash = await bcrypt.hash(otp, 10);
-        const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
-
-        await prisma.user.upsert({
-            where: { mobile },
-            update: {
-                otp_hash: otpHash,
-                otp_expires_at: expiresAt
-            },
-            create: {
-                mobile,
-                otp_hash: otpHash,
-                otp_expires_at: expiresAt,
-                authProvider: 'mobile'
-            }
-        });
-
-        console.log(`Sending OTP ${otp} to ${mobile}`);
-        res.json({ success: true, message: 'OTP sent' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Failed to send OTP' });
-    }
-};
-
-exports.verifyOtp = async (req, res) => {
-    try {
-        const { mobile, otp } = req.body;
-
-        const user = await prisma.user.findUnique({ where: { mobile } });
-        if (!user || !user.otp_hash || new Date() > user.otp_expires_at) {
-            return res.status(400).json({ error: 'OTP expired or not found' });
+        // Email login logic
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
         }
 
-        const isValid = await bcrypt.compare(otp, user.otp_hash);
+        const user = await prisma.user.findUnique({ where: { email } });
+
+        if (!user || !user.password) {
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        const isValid = await bcrypt.compare(password, user.password);
         if (!isValid) {
-            return res.status(400).json({ error: 'Invalid OTP' });
+            return res.status(401).json({ error: 'Invalid email or password' });
         }
 
         const updatedUser = await prisma.user.update({
-            where: { mobile },
-            data: {
-                is_mobile_verified: true,
-                otp_hash: null,
-                otp_expires_at: null,
-                lastLogin: new Date()
-            }
+            where: { id: user.id },
+            data: { lastLogin: new Date() }
         });
 
-        const jwtToken = jwt.sign({ userId: updatedUser.id, mobile: updatedUser.mobile }, process.env.JWT_SECRET, { expiresIn: '30d' });
+        const jwtToken = jwt.sign({ userId: updatedUser.id, email: updatedUser.email }, process.env.JWT_SECRET, { expiresIn: '30d' });
 
-        res.json({ success: true, token: jwtToken, user: updatedUser });
+        const isProfileComplete = !!(updatedUser.mobile && updatedUser.gender);
+
+        res.json({
+            success: true,
+            token: jwtToken,
+            user: updatedUser,
+            isProfileComplete
+        });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Verification failed' });
+        res.status(500).json({ error: 'Authentication failed' });
     }
 };

@@ -14,10 +14,10 @@ exports.getProfile = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
     try {
-        const { name, email, mobile, fcmToken, is_mobile_verified } = req.body;
+        const { name, email, mobile, gender, fcmToken, is_mobile_verified } = req.body;
         const user = await prisma.user.update({
             where: { id: req.user.userId || req.user.uid },
-            data: { name, email, mobile, fcmToken, is_mobile_verified }
+            data: { name, email, mobile, gender, fcmToken, is_mobile_verified }
         });
         res.json(user);
     } catch (error) {
