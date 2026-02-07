@@ -12,15 +12,28 @@ exports.getProfile = async (req, res) => {
     }
 };
 
+const bcrypt = require('bcryptjs');
+
 exports.updateProfile = async (req, res) => {
     try {
-        const { name, email, mobile, gender, fcmToken, is_mobile_verified } = req.body;
+        const { name, email, mobile, gender, fcmToken, is_mobile_verified, photoUrl, password } = req.body;
+
+        const updateData = { name, email, mobile, gender, fcmToken, is_mobile_verified, photoUrl };
+
+        // Remove undefined fields
+        Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+
+        if (password) {
+            updateData.password = await bcrypt.hash(password, 10);
+        }
+
         const user = await prisma.user.update({
             where: { id: req.user.userId || req.user.uid },
-            data: { name, email, mobile, gender, fcmToken, is_mobile_verified }
+            data: updateData
         });
         res.json(user);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ error: 'Failed to update profile' });
     }
 };

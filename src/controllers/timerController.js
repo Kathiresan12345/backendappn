@@ -55,6 +55,24 @@ exports.extendTimer = async (req, res) => {
         });
         res.json(timer);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ error: 'Failed to extend timer' });
     }
 };
+
+exports.getActiveTimer = async (req, res) => {
+    try {
+        const timer = await prisma.safeTimer.findFirst({
+            where: {
+                userId: req.user.userId || req.user.uid,
+                status: 'active'
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(timer);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to fetch active timer' });
+    }
+};
+
