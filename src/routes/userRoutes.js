@@ -8,5 +8,6 @@ router.get('/profile', authMiddleware, userController.getProfile);
 router.put('/profile', authMiddleware, userController.updateProfile);
 router.patch('/profile', authMiddleware, userController.updateProfile);
 router.post('/settings', authMiddleware, userController.updateSettings);
+router.patch('/fcm-token', authMiddleware, userController.updateFcmToken);
 
 module.exports = router;

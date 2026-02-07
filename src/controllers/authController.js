@@ -7,7 +7,7 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 exports.register = async (req, res) => {
     try {
-        const { email, password, name, mobile, gender } = req.body;
+        const { email, password, name, mobile, gender, fcmToken } = req.body;
 
         // Check if user already exists
         const existingUser = await prisma.user.findFirst({
@@ -32,6 +32,7 @@ exports.register = async (req, res) => {
                 name,
                 mobile,
                 gender,
+                fcmToken,
                 authProvider: 'email'
             }
         });
@@ -47,7 +48,7 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
     try {
-        const { provider, email, password, token, userData } = req.body;
+        const { provider, email, password, token, userData, fcmToken } = req.body;
 
         // Way 1: Social Login - Apple
         if (provider === 'apple') {
@@ -70,12 +71,16 @@ exports.login = async (req, res) => {
                         name: userData?.name || 'Apple User',
                         googleId: appleId,
                         authProvider: 'apple',
+                        fcmToken
                     }
                 });
             } else {
                 user = await prisma.user.update({
                     where: { id: user.id },
-                    data: { lastLogin: new Date() }
+                    data: {
+                        lastLogin: new Date(),
+                        ...(fcmToken && { fcmToken })
+                    }
                 });
             }
 
@@ -106,6 +111,7 @@ exports.login = async (req, res) => {
                         name: userData?.name || payload['name'],
                         photoUrl: userData?.photoUrl || payload['picture'],
                         authProvider: 'google',
+                        fcmToken
                     }
                 });
             } else {
@@ -113,7 +119,8 @@ exports.login = async (req, res) => {
                     where: { googleId: googleId },
                     data: {
                         lastLogin: new Date(),
-                        photoUrl: userData?.photoUrl || payload['picture'] || user.photoUrl
+                        photoUrl: userData?.photoUrl || payload['picture'] || user.photoUrl,
+                        ...(fcmToken && { fcmToken })
                     }
                 });
             }
@@ -143,7 +150,10 @@ exports.login = async (req, res) => {
 
             const updatedUser = await prisma.user.update({
                 where: { id: user.id },
-                data: { lastLogin: new Date() }
+                data: {
+                    lastLogin: new Date(),
+                    ...(fcmToken && { fcmToken })
+                }
             });
 
             const jwtToken = jwt.sign({ userId: updatedUser.id, email: updatedUser.email }, process.env.JWT_SECRET, { expiresIn: '30d' });

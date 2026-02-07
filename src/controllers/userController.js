@@ -51,3 +51,21 @@ exports.updateSettings = async (req, res) => {
         res.status(500).json({ error: 'Failed to save settings' });
     }
 };
+
+exports.updateFcmToken = async (req, res) => {
+    try {
+        const { fcmToken } = req.body;
+        if (!fcmToken) {
+            return res.status(400).json({ error: 'FCM Token is required' });
+        }
+
+        const user = await prisma.user.update({
+            where: { id: req.user.userId || req.user.uid },
+            data: { fcmToken }
+        });
+        res.json({ success: true, message: 'FCM Token updated successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to update FCM token' });
+    }
+};

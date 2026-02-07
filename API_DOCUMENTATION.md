@@ -20,7 +20,8 @@ This document provides a comprehensive guide to the KIRA backend API endpoints, 
       "password": "securepassword",
       "name": "John Doe",
       "mobile": "1234567890",
-      "gender": "Male"
+      "gender": "Male",
+      "fcmToken": "optional_fcm_token"
     }
     ```
 *   **Response:**
@@ -43,7 +44,8 @@ The login screen supports two primary authentication methods as shown in the UI:
     {
       "provider": "email",
       "email": "user@example.com",
-      "password": "securepassword"
+      "password": "securepassword",
+      "fcmToken": "optional_fcm_token"
     }
     ```
 
@@ -55,7 +57,8 @@ The login screen supports two primary authentication methods as shown in the UI:
     {
       "provider": "google",
       "token": "GOOGLE_ID_TOKEN",
-      "userData": { "name": "John", "photoUrl": "..." }
+      "userData": { "name": "John", "photoUrl": "..." },
+      "fcmToken": "optional_fcm_token"
     }
     ```
 *   **Request Body (Apple):**
@@ -63,7 +66,8 @@ The login screen supports two primary authentication methods as shown in the UI:
     {
       "provider": "apple",
       "token": "APPLE_IDENTITY_TOKEN",
-      "userData": { "name": "John", "email": "john@example.com" }
+      "userData": { "name": "John", "email": "john@example.com" },
+      "fcmToken": "optional_fcm_token"
     }
     ```
 
@@ -113,6 +117,23 @@ The login screen supports two primary authentication methods as shown in the UI:
       "fcmToken": "...",
       "photoUrl": "...",
       "password": "newpassword"
+    }
+    ```
+
+### Update FCM Token
+*   **Method:** `PATCH`
+*   **Endpoint:** `/fcm-token`
+*   **Request Body:**
+    ```json
+    {
+      "fcmToken": "NEW_FCM_TOKEN"
+    }
+    ```
+*   **Response:**
+    ```json
+    {
+      "success": true,
+      "message": "FCM Token updated successfully"
     }
     ```
 
