@@ -38,17 +38,56 @@ exports.updateProfile = async (req, res) => {
     }
 };
 
+exports.getSettings = async (req, res) => {
+    try {
+        const settings = await prisma.userSettings.findUnique({
+            where: { userId: req.user.userId || req.user.uid }
+        });
+
+        if (!settings) {
+            // Return default settings if none exist
+            return res.json({
+                reminderTime: "19:00",
+                alertDelayMinutes: 120,
+                notificationsEnabled: true
+            });
+        }
+
+        res.json(settings);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to fetch settings' });
+    }
+};
+
 exports.updateSettings = async (req, res) => {
     try {
         const { reminderTime, alertDelayMinutes, notificationsEnabled } = req.body;
+
+        const updateData = {};
+        if (reminderTime !== undefined) updateData.reminderTime = reminderTime;
+        if (alertDelayMinutes !== undefined) updateData.alertDelayMinutes = alertDelayMinutes;
+        if (notificationsEnabled !== undefined) updateData.notificationsEnabled = notificationsEnabled;
+
         const settings = await prisma.userSettings.upsert({
             where: { userId: req.user.userId || req.user.uid },
-            update: { reminderTime, alertDelayMinutes, notificationsEnabled },
-            create: { userId: req.user.userId || req.user.uid, reminderTime, alertDelayMinutes, notificationsEnabled }
+            update: updateData,
+            create: {
+                userId: req.user.userId || req.user.uid,
+                reminderTime: reminderTime || "19:00",
+                alertDelayMinutes: alertDelayMinutes !== undefined ? alertDelayMinutes : 120,
+                notificationsEnabled: notificationsEnabled !== undefined ? notificationsEnabled : true
+            }
         });
-        res.json(settings);
+
+        res.json({
+            success: true,
+            message: 'Settings updated successfully',
+            settings
+        });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to save settings' });
+        console.error(error);
+        res.status(500).json({ success: false, error: 'Failed to save settings' });
     }
 };
 

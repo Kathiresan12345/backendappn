@@ -20,6 +20,7 @@ const sosRoutes = require('./routes/sosRoutes');
 const achievementRoutes = require('./routes/achievementRoutes');
 const historyRoutes = require('./routes/historyRoutes');
 const insightsRoutes = require('./routes/insightsRoutes');
+const quotesRoutes = require('./routes/quotesRoutes');
 
 // Initialize Express app
 const app = express();
@@ -44,6 +45,7 @@ app.use('/api/sos', sosRoutes);
 app.use('/api/achievements', achievementRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/insights', insightsRoutes);
+app.use('/api/quotes', quotesRoutes);
 
 // Health check
 app.get('/', (req, res) => {

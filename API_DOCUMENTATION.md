@@ -137,10 +137,22 @@ The login screen supports two primary authentication methods as shown in the UI:
     }
     ```
 
-### Save Settings
-*   **Method:** `POST`
+### Get Settings
+*   **Method:** `GET`
 *   **Endpoint:** `/settings`
-*   **Request Body:**
+*   **Response:**
+    ```json
+    {
+      "id": "uuid",
+      "userId": "uuid",
+      "reminderTime": "19:00",
+      "alertDelayMinutes": 120,
+      "notificationsEnabled": true,
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+    ```
+*   **Response (No Settings):**
     ```json
     {
       "reminderTime": "19:00",
@@ -148,6 +160,38 @@ The login screen supports two primary authentication methods as shown in the UI:
       "notificationsEnabled": true
     }
     ```
+
+### Update Settings
+*   **Method:** `POST`
+*   **Endpoint:** `/settings`
+*   **Request Body:** (All fields optional)
+    ```json
+    {
+      "reminderTime": "19:00",
+      "alertDelayMinutes": 120,
+      "notificationsEnabled": true
+    }
+    ```
+*   **Response:**
+    ```json
+    {
+      "success": true,
+      "message": "Settings updated successfully",
+      "settings": {
+        "id": "uuid",
+        "userId": "uuid",
+        "reminderTime": "19:00",
+        "alertDelayMinutes": 120,
+        "notificationsEnabled": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    }
+    ```
+*   **Field Descriptions:**
+    - `reminderTime` (string): Time to send daily check-in reminder (format: "HH:MM", e.g., "19:00")
+    - `alertDelayMinutes` (integer): Minutes to wait after reminder before alerting contacts (default: 120)
+    - `notificationsEnabled` (boolean): Enable/disable push notifications (default: true)
 
 ---
 
@@ -229,7 +273,36 @@ The login screen supports two primary authentication methods as shown in the UI:
 ### Safety Stats
 *   **Method:** `GET`
 *   **Endpoint:** `/api/insights/stats`
-*   **Response:** `{ "checkinCount": 10, "sosCount": 1, "safetyScore": 85, "streak": 5 }`
+*   **Response:**
+    ```json
+    {
+      "checkinCount": 10,
+      "sosCount": 1,
+      "achievementCount": 5,
+      "safetyScore": 85,
+      "streak": 5,
+      "weeklyCheckins": [1, 1, 0, 1, 1, 1, 1]
+    }
+    ```
+*   **Response Fields:**
+    - `checkinCount`: Total number of check-ins
+    - `sosCount`: Total number of SOS events
+    - `achievementCount`: Total number of achievements earned
+    - `safetyScore`: Calculated safety score (0-100)
+    - `streak`: Current consecutive days with check-ins
+    - `weeklyCheckins`: Array of 7 integers (check-in counts for last 7 days)
+
+### Weekly Check-ins
+*   **Method:** `GET`
+*   **Endpoint:** `/api/insights/weekly-checkins`
+*   **Response:**
+    ```json
+    {
+      "success": true,
+      "data": [1, 1, 0, 1, 1, 1, 1]
+    }
+    ```
+*   **Description:** Returns check-in counts for the last 7 days (index 0 = 6 days ago, index 6 = today)
 
 ### List Badges
 *   **Method:** `GET`
@@ -237,7 +310,38 @@ The login screen supports two primary authentication methods as shown in the UI:
 
 ---
 
-## 7. WebSocket Documentation
+## 7. Quotes
+**Base Path:** `/api/quotes` (Requires Auth)
+
+### Daily Quote
+*   **Method:** `GET`
+*   **Endpoint:** `/api/quotes/daily`
+*   **Response:**
+    ```json
+    {
+      "success": true,
+      "quote": "Small habits prevent big worries.",
+      "author": "Anonymous"
+    }
+    ```
+*   **Description:** Returns a motivational quote that changes daily (same quote for all users on the same day)
+
+### Random Quote
+*   **Method:** `GET`
+*   **Endpoint:** `/api/quotes/random`
+*   **Response:**
+    ```json
+    {
+      "success": true,
+      "quote": "Safety is not a gadget but a state of mind.",
+      "author": "Eleanor Everet"
+    }
+    ```
+*   **Description:** Returns a random motivational quote
+
+---
+
+## 8. WebSocket Documentation
 **Namespace:** `/live-safe`
 
 ### Handshake
@@ -262,3 +366,94 @@ const socket = io("/live-safe", {
 | `sos:alert_received` | `{ success: true, timestamp }` | Confirms SOS is active. |
 | `sos:location_received` | `{ lat, lng, ... }` | Broadcast to viewers. |
 | `sos:contact_viewing` | `{ viewerId, timestamp }` | Notifies user that a contact is watching. |
+
+---
+
+## 9. Push Notifications (FCM)
+
+The backend automatically sends push notifications for critical safety events. Users must provide their FCM token during registration/login or via the `/api/user/fcm-token` endpoint.
+
+### Notification Types
+
+#### Check-in Reminder
+*   **Trigger:** Sent at user's configured `reminderTime` if they haven't checked in today
+*   **Payload:**
+    ```json
+    {
+      "title": "🔔 Daily Check-in Reminder",
+      "body": "Don't forget to check in today! Your safety matters.",
+      "data": {
+        "type": "checkin_reminder",
+        "action": "open_checkin"
+      }
+    }
+    ```
+
+#### Missed Check-in Alert
+*   **Trigger:** Sent to emergency contacts when user hasn't checked in by `reminderTime + alertDelayMinutes`
+*   **Payload:**
+    ```json
+    {
+      "title": "⚠️ Missed Check-in Alert",
+      "body": "[User Name] has not checked in today. Please verify their safety.",
+      "data": {
+        "type": "missed_checkin",
+        "userId": "uuid"
+      }
+    }
+    ```
+
+#### SOS Alert
+*   **Trigger:** Sent immediately when user triggers SOS
+*   **Payload:**
+    ```json
+    {
+      "title": "🚨 EMERGENCY SOS ALERT",
+      "body": "[User Name] has triggered an SOS! Location: lat, lng",
+      "data": {
+        "type": "sos_alert",
+        "userId": "uuid",
+        "lat": "12.34",
+        "lng": "56.78"
+      }
+    }
+    ```
+
+#### Timer Expiry Alert
+*   **Trigger:** Sent when safety timer expires without being stopped
+*   **Payload:**
+    ```json
+    {
+      "title": "⏰ Safety Timer Expired",
+      "body": "[User Name]'s safety timer has expired without check-in.",
+      "data": {
+        "type": "timer_expired",
+        "userId": "uuid"
+      }
+    }
+    ```
+
+---
+
+## 10. Background Cron Jobs
+
+These automated jobs run on the server to ensure user safety:
+
+### Safety Timer Expiry Monitor
+*   **Frequency:** Every 1 minute
+*   **Action:** Checks for expired timers, auto-triggers SOS, and notifies emergency contacts
+
+### Daily Check-in Monitor
+*   **Frequency:** Every 15 minutes
+*   **Action:** 
+    - Sends reminder at configured `reminderTime`
+    - Sends missed check-in alert to contacts after `reminderTime + alertDelayMinutes`
+
+### Missed Alert Escalation
+*   **Frequency:** Every 5 minutes
+*   **Action:** Alerts emergency contacts if user hasn't checked in for 24+ hours
+
+### History Cleanup
+*   **Frequency:** Monthly (1st of each month)
+*   **Action:** Archives check-ins older than 12 months
+

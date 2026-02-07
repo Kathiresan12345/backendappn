@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const prisma = require('../lib/prisma');
+const { sendTimerExpiryAlert, sendCheckInReminder, sendMissedCheckInAlert } = require('./notificationService');
 
 console.log('⏰ Cron Services Initialized');
 
@@ -36,32 +37,78 @@ cron.schedule('* * * * *', async () => {
         });
 
         console.log(`🚨 Auto-SOS triggered for user ${timer.userId} due to timer expiry`);
-        // TODO: Call notification service to send SMS/Push to contacts
+
+        // Send notification to emergency contacts
+        await sendTimerExpiryAlert(timer.userId);
     }
 });
 
 /**
  * Job: DailyCheckinReminder
- * Frequency: Hourly (Checks if any user needs a reminder at this hour)
+ * Frequency: Every 15 Minutes (15-30 mins as requested)
+ * Description: Checks for users who haven't checked in today AND current time is past (reminderTime + alertDelay).
  */
-cron.schedule('0 * * * *', async () => {
+cron.schedule('*/15 * * * *', async () => {
     console.log('Running DailyCheckinReminder...');
     const now = new Date();
-    const currentHour = `${now.getHours().toString().padStart(2, '0')}:00`;
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
 
+    // In a real implementation:
+    // 1. Fetch users with settings enabled
+    // 2. Parse user.settings.reminderTime (e.g., "19:00")
+    // 3. Add user.settings.alertDelayMinutes
+    // 4. If current time > calculatedTime AND no check-in today => Trigger Alert
+
+    // Simplified fetch for demo:
     const usersToRemind = await prisma.user.findMany({
         where: {
             settings: {
-                reminderTime: currentHour,
                 notificationsEnabled: true
             }
         },
-        include: { settings: true }
+        include: { settings: true, checkIns: true } // Need to filter checkIns in app logic or advanced query
     });
 
     for (const user of usersToRemind) {
-        console.log(`🔔 Sending reminder to user ${user.id}`);
-        // TODO: Send FCM Push Notification
+        if (!user.settings) continue;
+
+        // Check if user checked in today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const checkedInToday = await prisma.checkIn.count({
+            where: {
+                userId: user.id,
+                createdAt: { gte: today }
+            }
+        });
+
+        if (checkedInToday === 0) {
+            // Parse reminder time (e.g., "19:00")
+            const [reminderHour, reminderMinute] = user.settings.reminderTime.split(':').map(Number);
+
+            // Calculate alert time (reminderTime + alertDelay)
+            const alertTime = new Date();
+            alertTime.setHours(reminderHour, reminderMinute, 0, 0);
+            alertTime.setMinutes(alertTime.getMinutes() + user.settings.alertDelayMinutes);
+
+            // If current time is past alert time, send missed check-in alert
+            if (now >= alertTime) {
+                console.log(`⚠️ Sending missed check-in alert for user ${user.id}`);
+                await sendMissedCheckInAlert(user.id);
+            }
+            // If current time is past reminder time but before alert time, send reminder
+            else {
+                const reminderTimeToday = new Date();
+                reminderTimeToday.setHours(reminderHour, reminderMinute, 0, 0);
+
+                if (now >= reminderTimeToday) {
+                    console.log(`🔔 Sending check-in reminder to user ${user.id}`);
+                    await sendCheckInReminder(user.id);
+                }
+            }
+        }
     }
 });
 

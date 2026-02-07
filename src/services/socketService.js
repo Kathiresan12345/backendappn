@@ -42,10 +42,15 @@ const initSocket = (server) => {
 
         socket.on('sos:location_update', (data) => {
             // data: { sosSessionId, lat, lng, battery, speed }
-            console.log(`📍 Location update for SOS ${data.sosSessionId}`);
+            console.log(`📍 Location update for SOS ${data.sosSessionId} from ${socket.user.userId}`);
 
-            // Broadcast to the SOS session room (viewers)
+            // Broadcast location to ALL contacts in the room
             liveSafeNamespace.to(`sos:${data.sosSessionId}`).emit('sos:location_received', data);
+        });
+
+        socket.on('join_sos_room', ({ sosId }) => {
+            console.log(`🔌 User ${socket.user.userId} joining SOS room: ${sosId}`);
+            socket.join(`sos:${sosId}`);
         });
 
         socket.on('timer:sync', (data) => {
@@ -54,7 +59,7 @@ const initSocket = (server) => {
             console.log(`⏲️ Timer sync for ${socket.user.userId}: ${data.remainingSeconds}s left`);
         });
 
-        // Room joining for viewing
+        // Room joining for viewing (legacy/alias for join_sos_room)
         socket.on('view_sos', (sosSessionId) => {
             socket.join(`sos:${sosSessionId}`);
             console.log(`👀 User viewing SOS: ${sosSessionId}`);

@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma');
+const { sendSOSAlert } = require('../services/notificationService');
 
 exports.triggerSos = async (req, res) => {
     try {
@@ -12,6 +13,9 @@ exports.triggerSos = async (req, res) => {
                 status: 'active'
             }
         });
+
+        // Send SOS alert to emergency contacts
+        await sendSOSAlert(req.user.userId || req.user.uid, location);
 
         res.json(sos);
     } catch (error) {
