@@ -42,13 +42,14 @@ exports.getDailyQuote = async (req, res) => {
         const quoteIndex = dayOfYear % quotes.length;
         const selectedQuote = quotes[quoteIndex];
 
+        console.log(`✅ [SUCCESS] getDailyQuote - Sent quote: "${selectedQuote.quote.substring(0, 20)}..."`);
         res.json({
             success: true,
             quote: selectedQuote.quote,
             author: selectedQuote.author
         });
     } catch (error) {
-        console.error(error);
+        console.error(`❌ [ERROR] getDailyQuote:`, error);
         res.status(500).json({
             success: false,
             error: 'Failed to fetch quote',
@@ -64,13 +65,14 @@ exports.getRandomQuote = async (req, res) => {
         const randomIndex = Math.floor(Math.random() * quotes.length);
         const selectedQuote = quotes[randomIndex];
 
+        console.log(`✅ [SUCCESS] getRandomQuote - Sent quote: "${selectedQuote.quote.substring(0, 20)}..."`);
         res.json({
             success: true,
             quote: selectedQuote.quote,
             author: selectedQuote.author
         });
     } catch (error) {
-        console.error(error);
+        console.error(`❌ [ERROR] getRandomQuote:`, error);
         res.status(500).json({
             success: false,
             error: 'Failed to fetch quote'

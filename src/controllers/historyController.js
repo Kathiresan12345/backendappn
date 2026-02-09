@@ -6,9 +6,10 @@ exports.getCheckinHistory = async (req, res) => {
             where: { userId: req.user.userId || req.user.uid },
             orderBy: { createdAt: 'desc' }
         });
+        console.log(`✅ [SUCCESS] getCheckinHistory - User ${req.user.userId || req.user.uid}: Fetched ${history.length} records`);
         res.json(history);
     } catch (error) {
-        console.error(error);
+        console.error(`❌ [ERROR] getCheckinHistory - User ${req.user?.userId || req.user?.uid}:`, error);
         res.status(500).json({ error: 'Failed to fetch check-in history' });
     }
 };
@@ -19,9 +20,10 @@ exports.getSosHistory = async (req, res) => {
             where: { userId: req.user.userId || req.user.uid },
             orderBy: { createdAt: 'desc' }
         });
+        console.log(`✅ [SUCCESS] getSosHistory - User ${req.user.userId || req.user.uid}: Fetched ${history.length} records`);
         res.json(history);
     } catch (error) {
-        console.error(error);
+        console.error(`❌ [ERROR] getSosHistory - User ${req.user?.userId || req.user?.uid}:`, error);
         res.status(500).json({ error: 'Failed to fetch SOS history' });
     }
 };

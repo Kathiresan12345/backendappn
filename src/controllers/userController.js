@@ -4,10 +4,12 @@ exports.getProfile = async (req, res) => {
     try {
         const user = await prisma.user.findUnique({
             where: { id: req.user.userId || req.user.uid },
-            include: { settings: true }
+            include: { settings: true } // Removed invalid include 'user' if it causes issues, assuming standard schema
         });
+        console.log(`✅ [SUCCESS] getProfile - User ${req.user.userId || req.user.uid}: Fetched profile`);
         res.json(user);
     } catch (error) {
+        console.error(`❌ [ERROR] getProfile - User ${req.user?.userId || req.user?.uid}:`, error);
         res.status(500).json({ error: 'Failed to fetch profile' });
     }
 };
@@ -31,9 +33,10 @@ exports.updateProfile = async (req, res) => {
             where: { id: req.user.userId || req.user.uid },
             data: updateData
         });
+        console.log(`✅ [SUCCESS] updateProfile - User ${req.user.userId || req.user.uid}: Profile updated`);
         res.json(user);
     } catch (error) {
-        console.error(error);
+        console.error(`❌ [ERROR] updateProfile - User ${req.user?.userId || req.user?.uid}:`, error);
         res.status(500).json({ error: 'Failed to update profile' });
     }
 };
@@ -45,6 +48,7 @@ exports.getSettings = async (req, res) => {
         });
 
         if (!settings) {
+            console.log(`⚠️ [WARN] getSettings - User ${req.user.userId || req.user.uid}: No settings found, sending defaults`);
             // Return default settings if none exist
             return res.json({
                 reminderTime: "19:00",
@@ -53,9 +57,10 @@ exports.getSettings = async (req, res) => {
             });
         }
 
+        console.log(`✅ [SUCCESS] getSettings - User ${req.user.userId || req.user.uid}: Fetched settings`);
         res.json(settings);
     } catch (error) {
-        console.error(error);
+        console.error(`❌ [ERROR] getSettings - User ${req.user?.userId || req.user?.uid}:`, error);
         res.status(500).json({ error: 'Failed to fetch settings' });
     }
 };
@@ -80,13 +85,14 @@ exports.updateSettings = async (req, res) => {
             }
         });
 
+        console.log(`✅ [SUCCESS] updateSettings - User ${req.user.userId || req.user.uid}: Settings updated`);
         res.json({
             success: true,
             message: 'Settings updated successfully',
             settings
         });
     } catch (error) {
-        console.error(error);
+        console.error(`❌ [ERROR] updateSettings - User ${req.user?.userId || req.user?.uid}:`, error);
         res.status(500).json({ success: false, error: 'Failed to save settings' });
     }
 };
@@ -95,6 +101,7 @@ exports.updateFcmToken = async (req, res) => {
     try {
         const { fcmToken } = req.body;
         if (!fcmToken) {
+            console.error(`❌ [ERROR] updateFcmToken - Missing FCM token`);
             return res.status(400).json({ error: 'FCM Token is required' });
         }
 
@@ -102,9 +109,10 @@ exports.updateFcmToken = async (req, res) => {
             where: { id: req.user.userId || req.user.uid },
             data: { fcmToken }
         });
+        console.log(`✅ [SUCCESS] updateFcmToken - User ${req.user.userId || req.user.uid}: Token updated`);
         res.json({ success: true, message: 'FCM Token updated successfully' });
     } catch (error) {
-        console.error(error);
+        console.error(`❌ [ERROR] updateFcmToken - User ${req.user?.userId || req.user?.uid}:`, error);
         res.status(500).json({ error: 'Failed to update FCM token' });
     }
 };

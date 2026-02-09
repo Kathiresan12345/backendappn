@@ -28,10 +28,13 @@ async function sendNotificationToUser(userId, notification) {
         };
 
         const response = await admin.messaging().send(message);
-        console.log(`✅ Notification sent to ${user.name || userId}:`, response);
+        console.log(`✅ [SUCCESS] Notification sent to ${user.name || userId}`);
+        console.log(`   Message ID: ${response}`);
         return { success: true, response };
     } catch (error) {
-        console.error(`❌ Error sending notification to user ${userId}:`, error);
+        console.error(`❌ [ERROR] Failed to send notification to user ${userId}`);
+        console.error(`   Reason: ${error.message}`);
+        console.error(`   Code: ${error.code}`);
         return { success: false, error: error.message };
     }
 }
@@ -52,7 +55,7 @@ async function sendNotificationToMultipleUsers(userIds, notification) {
         });
 
         if (users.length === 0) {
-            console.log('⚠️ No users with FCM tokens found');
+            console.log('⚠️ [WARN] No users with FCM tokens found for the provided IDs');
             return { success: false, reason: 'No FCM tokens' };
         }
 
@@ -68,10 +71,23 @@ async function sendNotificationToMultipleUsers(userIds, notification) {
         };
 
         const response = await admin.messaging().sendEachForMulticast(message);
-        console.log(`✅ Sent ${response.successCount} notifications, ${response.failureCount} failed`);
+
+        console.log(`📊 [SUMMARY] Notification Multicast Result:`);
+        console.log(`   ✅ Success: ${response.successCount}`);
+        console.log(`   ❌ Failure: ${response.failureCount}`);
+
+        if (response.failureCount > 0) {
+            console.log('   ⚠️ Failed Transmissions:');
+            response.responses.forEach((resp, idx) => {
+                if (!resp.success) {
+                    console.error(`      - Token: ${tokens[idx]} | Error: ${resp.error.message}`);
+                }
+            });
+        }
+
         return { success: true, response };
     } catch (error) {
-        console.error('❌ Error sending notifications to multiple users:', error);
+        console.error('❌ [ERROR] Critical failure in sendNotificationToMultipleUsers:', error);
         return { success: false, error: error.message };
     }
 }
@@ -106,7 +122,7 @@ async function sendNotificationToEmergencyContacts(userId, notification) {
 
         return { success: true, contactsNotified: user.contacts.length };
     } catch (error) {
-        console.error('❌ Error sending notifications to emergency contacts:', error);
+        console.error('❌ [ERROR] Failed to send notifications to emergency contacts:', error);
         return { success: false, error: error.message };
     }
 }
@@ -117,7 +133,7 @@ async function sendNotificationToEmergencyContacts(userId, notification) {
  */
 async function sendCheckInReminder(userId) {
     return await sendNotificationToUser(userId, {
-        title: '🔔 Daily Check-in Reminder',
+        title: '🔔 KIRA Safety Reminder',
         body: 'Don\'t forget to check in today! Your safety matters.',
         data: {
             type: 'checkin_reminder',
@@ -137,7 +153,7 @@ async function sendMissedCheckInAlert(userId) {
     });
 
     return await sendNotificationToEmergencyContacts(userId, {
-        title: '⚠️ Missed Check-in Alert',
+        title: '⚠️ KIRA Missed Check-in Alert',
         body: `${user?.name || 'A user'} has not checked in today. Please verify their safety.`,
         data: {
             type: 'missed_checkin',
@@ -158,13 +174,13 @@ async function sendSOSAlert(userId, location) {
     });
 
     return await sendNotificationToEmergencyContacts(userId, {
-        title: '🚨 EMERGENCY SOS ALERT',
+        title: '🚨 KIRA EMERGENCY SOS',
         body: `${user?.name || 'Someone'} has triggered an SOS! Location: ${location.lat}, ${location.lng}`,
         data: {
             type: 'sos_alert',
             userId: userId,
-            lat: location.lat.toString(),
-            lng: location.lng.toString()
+            lat: location.lat?.toString(),
+            lng: location.lng?.toString()
         }
     });
 }
@@ -180,7 +196,7 @@ async function sendTimerExpiryAlert(userId) {
     });
 
     return await sendNotificationToEmergencyContacts(userId, {
-        title: '⏰ Safety Timer Expired',
+        title: '⏰ KIRA Safety Timer Expired',
         body: `${user?.name || 'A user'}'s safety timer has expired without check-in. Please verify their safety.`,
         data: {
             type: 'timer_expired',

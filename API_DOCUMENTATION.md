@@ -105,7 +105,7 @@ The login screen supports two primary authentication methods as shown in the UI:
 *   **Response:** User object with `settings`.
 
 ### Update Profile
-*   **Method:** `PUT` or `PATCH`
+*   **Method:** `PUT` 
 *   **Endpoint:** `/profile`
 *   **Request Body:** (All fields optional for PATCH)
     ```json

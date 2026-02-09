@@ -48,6 +48,7 @@ exports.getStats = async (req, res) => {
         // Basic safety score logic
         const safetyScore = Math.min(100, (checkinCount * 5) + 50);
 
+        console.log(`✅ [SUCCESS] getStats - User ${userId}: Score ${safetyScore}, Streak ${streak}`);
         res.json({
             checkinCount,
             sosCount,
@@ -57,7 +58,7 @@ exports.getStats = async (req, res) => {
             weeklyCheckins
         });
     } catch (error) {
-        console.error(error);
+        console.error(`❌ [ERROR] getStats - User ${req.user?.userId || req.user?.uid}:`, error);
         res.status(500).json({ error: 'Failed to fetch safety stats' });
     }
 };
@@ -91,12 +92,13 @@ exports.getWeeklyCheckins = async (req, res) => {
             weeklyCheckins.push(count);
         }
 
+        console.log(`✅ [SUCCESS] getWeeklyCheckins - User ${userId}: Sent data`);
         res.json({
             success: true,
             data: weeklyCheckins
         });
     } catch (error) {
-        console.error(error);
+        console.error(`❌ [ERROR] getWeeklyCheckins - User ${req.user?.userId || req.user?.uid}:`, error);
         res.status(500).json({ success: false, error: 'Failed to fetch weekly check-ins' });
     }
 };

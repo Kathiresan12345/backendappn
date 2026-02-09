@@ -20,6 +20,7 @@ exports.register = async (req, res) => {
         });
 
         if (existingUser) {
+            console.error(`❌ [ERROR] register - User already exists: ${email} or ${mobile}`);
             return res.status(400).json({ error: 'User with this email or mobile already exists' });
         }
 
@@ -39,9 +40,10 @@ exports.register = async (req, res) => {
 
         const jwtToken = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '30d' });
 
+        console.log(`✅ [SUCCESS] register - New user created: ${user.email} (${user.id})`);
         res.json({ success: true, token: jwtToken, user, isProfileComplete: true });
     } catch (error) {
-        console.error(error);
+        console.error(`❌ [ERROR] register - Failed to register user:`, error);
         res.status(500).json({ error: 'Registration failed' });
     }
 };
@@ -74,6 +76,7 @@ exports.login = async (req, res) => {
                         fcmToken
                     }
                 });
+                console.log(`✅ [SUCCESS] login (Apple) - Created new user: ${user.email}`);
             } else {
                 user = await prisma.user.update({
                     where: { id: user.id },
@@ -82,6 +85,7 @@ exports.login = async (req, res) => {
                         ...(fcmToken && { fcmToken })
                     }
                 });
+                console.log(`✅ [SUCCESS] login (Apple) - User logged in: ${user.email}`);
             }
 
             const jwtToken = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '30d' });
@@ -114,6 +118,7 @@ exports.login = async (req, res) => {
                         fcmToken
                     }
                 });
+                console.log(`✅ [SUCCESS] login (Google) - Created new user: ${user.email}`);
             } else {
                 user = await prisma.user.update({
                     where: { googleId: googleId },
@@ -123,6 +128,7 @@ exports.login = async (req, res) => {
                         ...(fcmToken && { fcmToken })
                     }
                 });
+                console.log(`✅ [SUCCESS] login (Google) - User logged in: ${user.email}`);
             }
 
             const jwtToken = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '30d' });
@@ -134,17 +140,20 @@ exports.login = async (req, res) => {
         // Way 2: Email & Password login
         if (provider === 'email' || (!provider && email && password)) {
             if (!email || !password) {
+                console.error(`❌ [ERROR] login - Missing email or password`);
                 return res.status(400).json({ error: 'Email and password are required' });
             }
 
             const user = await prisma.user.findUnique({ where: { email } });
 
             if (!user || !user.password) {
+                console.error(`❌ [ERROR] login - Invalid credentials for: ${email}`);
                 return res.status(401).json({ error: 'Invalid email or password' });
             }
 
             const isValid = await bcrypt.compare(password, user.password);
             if (!isValid) {
+                console.error(`❌ [ERROR] login - Invalid password for: ${email}`);
                 return res.status(401).json({ error: 'Invalid email or password' });
             }
 
@@ -159,12 +168,13 @@ exports.login = async (req, res) => {
             const jwtToken = jwt.sign({ userId: updatedUser.id, email: updatedUser.email }, process.env.JWT_SECRET, { expiresIn: '30d' });
             const isProfileComplete = !!(updatedUser.mobile && updatedUser.gender);
 
+            console.log(`✅ [SUCCESS] login (Email) - User logged in: ${updatedUser.email}`);
             return res.json({ success: true, token: jwtToken, user: updatedUser, isProfileComplete });
         }
 
         res.status(400).json({ error: 'Unsupported authentication provider' });
     } catch (error) {
-        console.error(error);
+        console.error(`❌ [ERROR] login - Authentication failed:`, error);
         res.status(500).json({ error: 'Authentication failed' });
     }
 };
@@ -175,13 +185,14 @@ exports.forgotPassword = async (req, res) => {
         const user = await prisma.user.findUnique({ where: { email } });
 
         if (!user) {
+            console.log(`⚠️ [WARN] forgotPassword - User not found: ${email}`);
             return res.json({ success: true, message: 'If an account exists with that email, a reset link will be sent.' });
         }
 
-        console.log(`Password reset requested for: ${email}`);
+        console.log(`✅ [SUCCESS] forgotPassword - Reset requested for: ${email}`);
         res.json({ success: true, message: 'Password reset instructions sent to your email.' });
     } catch (error) {
-        console.error(error);
+        console.error(`❌ [ERROR] forgotPassword - Failed:`, error);
         res.status(500).json({ error: 'Failed to process request' });
     }
 };
