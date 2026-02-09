@@ -134,9 +134,10 @@ cron.schedule('*/15 * * * *', async () => {
  */
 cron.schedule('*/5 * * * *', async () => {
     console.log('Running MissedAlertEscalation...');
+    const now = new Date();
     // Real logic would track consecutive misses. 
     // Simplified: Check users who haven't checked in for 24+ hours.
-    const alertThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const alertThreshold = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const usersWithMissedAlerts = await prisma.user.findMany({
         where: {
             checkIns: {
