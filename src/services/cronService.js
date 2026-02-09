@@ -104,10 +104,11 @@ cron.schedule('*/15 * * * *', async () => {
                     console.log(`⚠️ Sending missed check-in alert for user ${user.id}`);
                     await sendMissedCheckInAlert(user.id);
 
-                    // Update last notified timestamp
-                    await prisma.userSettings.update({
+                    // Update last notified timestamp (using upsert to be safe)
+                    await prisma.userSettings.upsert({
                         where: { userId: user.id },
-                        data: { lastMissedCheckInAlertAt: now }
+                        update: { lastMissedCheckInAlertAt: now },
+                        create: { userId: user.id, lastMissedCheckInAlertAt: now }
                     });
                 } else {
                     console.log(`ℹ️ Skip alert for user ${user.id} - already notified today`);
@@ -161,9 +162,10 @@ cron.schedule('*/5 * * * *', async () => {
                 console.log(`⚠️ Escalating missed check-in alert for user ${user.id}`);
                 await sendMissedCheckInAlert(user.id);
 
-                await prisma.userSettings.update({
+                await prisma.userSettings.upsert({
                     where: { userId: user.id },
-                    data: { lastMissedCheckInAlertAt: now }
+                    update: { lastMissedCheckInAlertAt: now },
+                    create: { userId: user.id, lastMissedCheckInAlertAt: now }
                 });
             } else {
                 console.log(`ℹ️ Skip escalation for user ${user.id} - already notified recently`);
