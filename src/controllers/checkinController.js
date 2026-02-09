@@ -1,4 +1,6 @@
 const prisma = require('../lib/prisma');
+const { sendSafeDayNotification } = require('../services/notificationService');
+
 
 exports.createCheckin = async (req, res) => {
     try {
@@ -12,8 +14,13 @@ exports.createCheckin = async (req, res) => {
                 mood
             }
         });
-        console.log(`✅ [SUCCESS] createCheckin - User ${req.user.userId}: Status ${status}`);
+
+        // Notify emergency contacts that the user is safe
+        await sendSafeDayNotification(req.user.userId || req.user.uid);
+
+        console.log(`✅ [SUCCESS] createCheckin - User ${req.user.userId || req.user.uid}: Status ${status}`);
         res.json(checkin);
+
     } catch (error) {
         console.error(`❌ [ERROR] createCheckin - User ${req.user?.userId}:`, error);
         res.status(500).json({ error: 'Failed to record check-in' });

@@ -135,9 +135,10 @@ cron.schedule('*/5 * * * *', async () => {
 
     for (const user of usersWithMissedAlerts) {
         if (user.contacts.length > 0) {
-            console.log(`⚠️ Escalating missed check-in alert for user ${user.id} to ${user.contacts[0].phone}`);
-            // TODO: Send SMS Alert to primary contact
+            console.log(`⚠️ Escalating missed check-in alert for user ${user.id}`);
+            await sendMissedCheckInAlert(user.id);
         }
+
     }
 });
 

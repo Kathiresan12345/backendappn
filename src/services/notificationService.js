@@ -1,5 +1,35 @@
 const admin = require('../config/firebaseAdmin');
 const prisma = require('../lib/prisma');
+const twilio = require('twilio');
+
+// Initialize Twilio client
+const twilioClient = twilio(
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN
+);
+
+
+/**
+ * Send SMS using Twilio
+ * @param {string} to - Destination phone number
+ * @param {string} body - SMS message content
+ */
+async function sendSMS(to, body) {
+    try {
+        const message = await twilioClient.messages.create({
+            body: body,
+            from: process.env.TWILIO_PHONE,
+            to: to
+        });
+        console.log(`✅ [SMS SUCCESS] Message sent to ${to}`);
+        console.log(`   SID: ${message.sid}`);
+        return { success: true, sid: message.sid };
+    } catch (error) {
+        console.error(`❌ [SMS ERROR] Failed to send SMS to ${to}`);
+        console.error(`   Reason: ${error.message}`);
+        return { success: false, error: error.message };
+    }
+}
 
 /**
  * Send Push Notification to a single user
@@ -7,6 +37,7 @@ const prisma = require('../lib/prisma');
  * @param {object} notification - { title, body, data }
  */
 async function sendNotificationToUser(userId, notification) {
+
     try {
         const user = await prisma.user.findUnique({
             where: { id: userId },
@@ -113,14 +144,26 @@ async function sendNotificationToEmergencyContacts(userId, notification) {
             return { success: false, reason: 'No emergency contacts' };
         }
 
-        // In a real implementation, you'd need to find the User records for these contacts
-        // For now, we'll just log the phone numbers
-        console.log(`📞 Would send SMS/notification to contacts:`, user.contacts.map(c => c.phone));
+        // Send SMS to each contact
+        const smsPromises = user.contacts.map(contact => {
+            if (contact.phone) {
+                const messageBody = `${notification.title}\n\n${notification.body}`;
+                return sendSMS(contact.phone, messageBody);
+            }
+            return Promise.resolve({ success: false, reason: 'No phone number' });
+        });
 
-        // If contacts are also app users, you could send them push notifications
-        // This would require a different schema where contacts reference user IDs
+        const results = await Promise.all(smsPromises);
+        const successCount = results.filter(r => r.success).length;
 
-        return { success: true, contactsNotified: user.contacts.length };
+        console.log(`📊 [SMS SUMMARY] Sent ${successCount}/${user.contacts.length} emergency SMS alerts`);
+
+        return {
+            success: successCount > 0,
+            contactsNotified: user.contacts.length,
+            smsResults: results
+        };
+
     } catch (error) {
         console.error('❌ [ERROR] Failed to send notifications to emergency contacts:', error);
         return { success: false, error: error.message };
@@ -205,12 +248,36 @@ async function sendTimerExpiryAlert(userId) {
     });
 }
 
+/**
+ * Send Safe Day confirmation to emergency contacts
+ * @param {string} userId - User ID
+ */
+async function sendSafeDayNotification(userId) {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true }
+    });
+
+    return await sendNotificationToEmergencyContacts(userId, {
+        title: '✅ KIRA Safe Today',
+        body: `${user?.name || 'A user'} has checked in and is SAFE today.`,
+        data: {
+            type: 'safe_checkin',
+            userId: userId
+        }
+    });
+}
+
 module.exports = {
+    sendSMS,
     sendNotificationToUser,
     sendNotificationToMultipleUsers,
     sendNotificationToEmergencyContacts,
     sendCheckInReminder,
     sendMissedCheckInAlert,
     sendSOSAlert,
-    sendTimerExpiryAlert
+    sendTimerExpiryAlert,
+    sendSafeDayNotification
 };
+
+
