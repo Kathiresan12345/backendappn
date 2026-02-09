@@ -191,6 +191,21 @@ async function sendNotificationToEmergencyContacts(userId, notification) {
 }
 
 /**
+ * Send urgent notification to user when their contacts are alerted
+ * @param {string} userId - User ID
+ */
+async function sendLateCheckInUrgentNotification(userId) {
+    return await sendNotificationToUser(userId, {
+        title: '🚨 CRITICAL: Contacts Notified',
+        body: 'You missed your check-in! We have alerted your emergency contacts. Please check in now to let them know you are safe.',
+        data: {
+            type: 'urgent_alert',
+            action: 'open_checkin'
+        }
+    });
+}
+
+/**
  * Send daily check-in reminder
  * @param {string} userId - User ID
  */
@@ -294,6 +309,7 @@ module.exports = {
     sendNotificationToMultipleUsers,
     sendNotificationToEmergencyContacts,
     sendCheckInReminder,
+    sendLateCheckInUrgentNotification,
     sendMissedCheckInAlert,
     sendSOSAlert,
     sendTimerExpiryAlert,

@@ -1,6 +1,11 @@
 const cron = require('node-cron');
 const prisma = require('../lib/prisma');
-const { sendTimerExpiryAlert, sendCheckInReminder, sendMissedCheckInAlert } = require('./notificationService');
+const {
+    sendTimerExpiryAlert,
+    sendCheckInReminder,
+    sendMissedCheckInAlert,
+    sendLateCheckInUrgentNotification
+} = require('./notificationService');
 
 console.log('⏰ Cron Services Initialized');
 
@@ -93,34 +98,35 @@ cron.schedule('*/15 * * * *', async () => {
             alertTime.setHours(reminderHour, reminderMinute, 0, 0);
             alertTime.setMinutes(alertTime.getMinutes() + user.settings.alertDelayMinutes);
 
-            // If current time is past alert time, send missed check-in alert
+            // 1. Handle Alert Time (SMS to Contacts + Urgent Push to User)
             if (now >= alertTime) {
-                // Check if already notified today
+                // Send Urgent Push to User EVERY 15 mins (every cron run)
+                console.log(`🚨 Sending urgent late-checkin push to user ${user.id}`);
+                await sendLateCheckInUrgentNotification(user.id);
+
+                // Send SMS to Emergency Contacts (Gaurded: Only once per day)
                 const lastAlert = user.settings.lastMissedCheckInAlertAt;
                 const alreadyNotifiedToday = lastAlert &&
                     new Date(lastAlert).toLocaleDateString() === now.toLocaleDateString();
 
                 if (!alreadyNotifiedToday) {
-                    console.log(`⚠️ Sending missed check-in alert for user ${user.id}`);
+                    console.log(`⚠️ Sending missed check-in SMS alert for user ${user.id}`);
                     await sendMissedCheckInAlert(user.id);
 
-                    // Update last notified timestamp (using upsert to be safe)
                     await prisma.userSettings.upsert({
                         where: { userId: user.id },
                         update: { lastMissedCheckInAlertAt: now },
                         create: { userId: user.id, lastMissedCheckInAlertAt: now }
                     });
-                } else {
-                    console.log(`ℹ️ Skip alert for user ${user.id} - already notified today`);
                 }
             }
-            // If current time is past reminder time but before alert time, send reminder
+            // 2. Handle Reminder Time (Regular Push to User)
             else {
                 const reminderTimeToday = new Date();
                 reminderTimeToday.setHours(reminderHour, reminderMinute, 0, 0);
 
                 if (now >= reminderTimeToday) {
-                    console.log(`🔔 Sending check-in reminder to user ${user.id}`);
+                    console.log(`🔔 Sending regular check-in reminder to user ${user.id}`);
                     await sendCheckInReminder(user.id);
                 }
             }
