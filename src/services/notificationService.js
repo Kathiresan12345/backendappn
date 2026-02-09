@@ -10,22 +10,42 @@ const twilioClient = twilio(
 
 
 /**
+ * Helper to ensure phone number is in E.164 format.
+ * Defaults to India (+91) if it's a 10-digit number.
+ */
+function formatPhoneNumber(phone) {
+    if (!phone) return null;
+    let cleaned = phone.trim().replace(/\s+/g, ''); // Remove spaces
+
+    // If it starts with +, it's already in E.164
+    if (cleaned.startsWith('+')) return cleaned;
+
+    // If it's a 10-digit number, assume it's an Indian number (+91)
+    if (cleaned.length === 10) {
+        return `+91${cleaned}`;
+    }
+
+    return cleaned;
+}
+
+/**
  * Send SMS using Twilio
  * @param {string} to - Destination phone number
  * @param {string} body - SMS message content
  */
 async function sendSMS(to, body) {
+    const formattedTo = formatPhoneNumber(to);
     try {
         const message = await twilioClient.messages.create({
             body: body,
             from: process.env.TWILIO_PHONE,
-            to: to
+            to: formattedTo
         });
-        console.log(`✅ [SMS SUCCESS] Message sent to ${to}`);
+        console.log(`✅ [SMS SUCCESS] Message sent to ${formattedTo}`);
         console.log(`   SID: ${message.sid}`);
         return { success: true, sid: message.sid };
     } catch (error) {
-        console.error(`❌ [SMS ERROR] Failed to send SMS to ${to}`);
+        console.error(`❌ [SMS ERROR] Failed to send SMS to ${formattedTo || to}`);
         console.error(`   Reason: ${error.message}`);
         return { success: false, error: error.message };
     }
