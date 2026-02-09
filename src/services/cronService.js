@@ -95,8 +95,23 @@ cron.schedule('*/15 * * * *', async () => {
 
             // If current time is past alert time, send missed check-in alert
             if (now >= alertTime) {
-                console.log(`⚠️ Sending missed check-in alert for user ${user.id}`);
-                await sendMissedCheckInAlert(user.id);
+                // Check if already notified today
+                const lastAlert = user.settings.lastMissedCheckInAlertAt;
+                const alreadyNotifiedToday = lastAlert &&
+                    new Date(lastAlert).toLocaleDateString() === now.toLocaleDateString();
+
+                if (!alreadyNotifiedToday) {
+                    console.log(`⚠️ Sending missed check-in alert for user ${user.id}`);
+                    await sendMissedCheckInAlert(user.id);
+
+                    // Update last notified timestamp
+                    await prisma.userSettings.update({
+                        where: { userId: user.id },
+                        data: { lastMissedCheckInAlertAt: now }
+                    });
+                } else {
+                    console.log(`ℹ️ Skip alert for user ${user.id} - already notified today`);
+                }
             }
             // If current time is past reminder time but before alert time, send reminder
             else {
@@ -130,15 +145,29 @@ cron.schedule('*/5 * * * *', async () => {
                 }
             }
         },
-        include: { contacts: { where: { isEmergencyContact: true } } }
+        include: {
+            contacts: { where: { isEmergencyContact: true } },
+            settings: true
+        }
     });
 
     for (const user of usersWithMissedAlerts) {
         if (user.contacts.length > 0) {
-            console.log(`⚠️ Escalating missed check-in alert for user ${user.id}`);
-            await sendMissedCheckInAlert(user.id);
-        }
+            const lastAlert = user.settings?.lastMissedCheckInAlertAt;
+            const alreadyNotifiedRecently = lastAlert && (now - new Date(lastAlert)) < 24 * 60 * 60 * 1000;
 
+            if (!alreadyNotifiedRecently) {
+                console.log(`⚠️ Escalating missed check-in alert for user ${user.id}`);
+                await sendMissedCheckInAlert(user.id);
+
+                await prisma.userSettings.update({
+                    where: { userId: user.id },
+                    data: { lastMissedCheckInAlertAt: now }
+                });
+            } else {
+                console.log(`ℹ️ Skip escalation for user ${user.id} - already notified recently`);
+            }
+        }
     }
 });
 

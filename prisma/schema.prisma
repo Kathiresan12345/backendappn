@@ -98,12 +98,13 @@ model Achievement {
 }
 
 model UserSettings {
-  id                   String   @id @default(uuid())
-  userId               String   @unique
-  user                 User     @relation(fields: [userId], references: [id])
-  reminderTime         String   @default("19:00")
-  alertDelayMinutes    Int      @default(120)
-  notificationsEnabled Boolean  @default(true)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id                        String    @id @default(uuid())
+  userId                    String    @unique
+  user                      User      @relation(fields: [userId], references: [id])
+  reminderTime              String    @default("19:00")
+  alertDelayMinutes         Int       @default(120)
+  notificationsEnabled      Boolean   @default(true)
+  lastMissedCheckInAlertAt  DateTime?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
 }
